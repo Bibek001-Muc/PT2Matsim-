@@ -1,12 +1,15 @@
 package org.matsim.pt2matsim.run;
 
+import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.config.ConfigWriter;
+import org.matsim.core.network.NetworkUtils;
+import org.matsim.core.network.algorithms.NetworkCleaner;
+import org.matsim.core.network.io.MatsimNetworkReader;
+import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.utils.collections.CollectionUtils;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
-import org.matsim.pt2matsim.run.CreateDefaultPTMapperConfig;
-import org.matsim.pt2matsim.run.PublicTransitMapper;
 
 public class
 
@@ -34,5 +37,15 @@ MapSchedule2Network {
         // (usually done manually)
         new ConfigWriter(config).write("example/config.xml");
         PublicTransitMapper.run("example/config.xml");
+
+        Network multimodalNetwork = NetworkUtils.createNetwork();
+        new MatsimNetworkReader(multimodalNetwork).readFile(ptmConfig.getOutputNetworkFile());
+        new NetworkCleaner().run(multimodalNetwork);
+        new NetworkWriter(multimodalNetwork).write(ptmConfig.getOutputNetworkFile());
+
+        Network streetNetwork = NetworkUtils.createNetwork();
+        new MatsimNetworkReader(streetNetwork).readFile(ptmConfig.getOutputStreetNetworkFile());
+        new NetworkCleaner().run(streetNetwork);
+        new NetworkWriter(streetNetwork).write(ptmConfig.getOutputStreetNetworkFile());
     }
 }
