@@ -8,7 +8,9 @@ import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
 import org.matsim.pt2matsim.run.CreateDefaultPTMapperConfig;
 import org.matsim.pt2matsim.run.PublicTransitMapper;
 
-public class MapSchedule2Network {
+public class
+
+MapSchedule2Network {
 
     public static void main(String[] args) {
         //Create a mapping config:
@@ -27,7 +29,7 @@ public class MapSchedule2Network {
         ptmConfig.setOutputStreetNetworkFile("output/Munich_streetnetwork.xml.gz");
         ptmConfig.setInputScheduleFile("output/MunichSchedule.xml");
         ptmConfig.setOutputScheduleFile("output/MunichScheduleMapped.xml");
-        ptmConfig.setScheduleFreespeedModes(CollectionUtils.stringToSet("rail, light_rail"));
+        ptmConfig.setScheduleFreespeedModes(CollectionUtils.stringToSet("pt"));
         // Save the mapping config
         // (usually done manually)
         new ConfigWriter(config).write("example/config.xml");
