@@ -1,5 +1,6 @@
 package org.matsim.pt2matsim.run;
 
+import org.matsim.api.core.v01.network.Link;
 import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
@@ -10,6 +11,10 @@ import org.matsim.core.network.io.MatsimNetworkReader;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.utils.collections.CollectionUtils;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
+
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 
 public class
 
@@ -41,6 +46,14 @@ MapSchedule2Network {
         Network multimodalNetwork = NetworkUtils.createNetwork();
         new MatsimNetworkReader(multimodalNetwork).readFile(ptmConfig.getOutputNetworkFile());
         new NetworkCleaner().run(multimodalNetwork);
+        Set<String> ptSpecific = new HashSet<>(Arrays.asList("bus", "rail", "subway", "tram", "light_rail"));
+        for (Link link : multimodalNetwork.getLinks().values()) {
+            Set<String> modes = new HashSet<>(link.getAllowedModes());
+            if (modes.removeAll(ptSpecific)) {
+                modes.add("pt");
+                link.setAllowedModes(modes);
+            }
+        }
         new NetworkWriter(multimodalNetwork).write(ptmConfig.getOutputNetworkFile());
 
         Network streetNetwork = NetworkUtils.createNetwork();
