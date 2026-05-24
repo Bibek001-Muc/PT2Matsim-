@@ -18,9 +18,11 @@ import org.matsim.pt2matsim.tools.ScheduleTools;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -79,6 +81,7 @@ public class MapSchedule2Network {
         ptmConfig.setInputScheduleFile ("output/MunichSchedule.xml");
         ptmConfig.setOutputScheduleFile("output/MunichScheduleMapped.xml");
         ptmConfig.setScheduleFreespeedModes(CollectionUtils.stringToSet("pt"));
+        ptmConfig.setTransportModeAssignment(streetOnlyModeAssignment());
 
         // Write to a transient runtime config so PublicTransitMapper has
         // a file to read. Crucially, this is a SEPARATE file — the
@@ -150,6 +153,21 @@ public class MapSchedule2Network {
                         + hist.get(pt) + " links still have mode '" + pt + "'");
             }
         }
+    }
+
+    /**
+     * The input network is street-only. Route buses on the street network;
+     * force fixed-guideway PT to artificial stop-to-stop links instead of
+     * asking the street network router to find impossible rail paths.
+     */
+    private static Map<String, Set<String>> streetOnlyModeAssignment() {
+        Map<String, Set<String>> modes = new HashMap<>();
+        modes.put("bus", CollectionUtils.stringToSet("car,pt"));
+        modes.put("rail", new LinkedHashSet<>());
+        modes.put("subway", new LinkedHashSet<>());
+        modes.put("tram", new LinkedHashSet<>());
+        modes.put("light_rail", new LinkedHashSet<>());
+        return modes;
     }
 
     /**
