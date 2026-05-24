@@ -5,16 +5,22 @@ import org.matsim.api.core.v01.network.Network;
 import org.matsim.core.config.Config;
 import org.matsim.core.config.ConfigUtils;
 import org.matsim.core.network.NetworkUtils;
-import org.matsim.core.network.algorithms.NetworkCleaner;
 import org.matsim.core.network.io.MatsimNetworkReader;
 import org.matsim.core.network.io.NetworkWriter;
 import org.matsim.core.utils.collections.CollectionUtils;
+import org.matsim.pt.transitSchedule.api.TransitLine;
+import org.matsim.pt.transitSchedule.api.TransitRoute;
+import org.matsim.pt.transitSchedule.api.TransitSchedule;
+import org.matsim.pt.transitSchedule.api.TransitStopFacility;
 import org.matsim.pt2matsim.config.PublicTransitMappingConfigGroup;
+import org.matsim.pt2matsim.tools.ScheduleTools;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -40,6 +46,9 @@ import java.util.Set;
  *       executed before the network was flushed to disk, so any links
  *       written by PTMapper after the loop kept their original modes.
  *       Now the collapse is the last thing written to each output.</li>
+ *   <li>No network cleaner is run after mapping. The mapper validates the
+ *       schedule/network pair it writes; a later graph cleanup can remove
+ *       transit-only links that the schedule still references.</li>
  * </ol>
  */
 public class MapSchedule2Network {
@@ -85,8 +94,8 @@ public class MapSchedule2Network {
                 + ptmConfig.getOutputNetworkFile());
         Network multimodal = NetworkUtils.createNetwork();
         new MatsimNetworkReader(multimodal).readFile(ptmConfig.getOutputNetworkFile());
-        new NetworkCleaner().run(multimodal);
         collapsePtModes(multimodal);
+        assertScheduleLinksExist(ptmConfig.getOutputScheduleFile(), multimodal);
         new NetworkWriter(multimodal).write(ptmConfig.getOutputNetworkFile());
 
         // ---- Street-only network: also collapse, just in case --------
@@ -94,7 +103,6 @@ public class MapSchedule2Network {
                 + ptmConfig.getOutputStreetNetworkFile());
         Network street = NetworkUtils.createNetwork();
         new MatsimNetworkReader(street).readFile(ptmConfig.getOutputStreetNetworkFile());
-        new NetworkCleaner().run(street);
         collapsePtModes(street);
         new NetworkWriter(street).write(ptmConfig.getOutputStreetNetworkFile());
 
@@ -141,6 +149,55 @@ public class MapSchedule2Network {
                 System.err.println("[MapSchedule2Network] WARNING: "
                         + hist.get(pt) + " links still have mode '" + pt + "'");
             }
+        }
+    }
+
+    /**
+     * Guard against post-processing that removes links still referenced by
+     * the mapped schedule. If this fails, the schedule/network pair is not
+     * usable by MATSim.
+     */
+    private static void assertScheduleLinksExist(String scheduleFile, Network network) {
+        TransitSchedule schedule = ScheduleTools.readTransitSchedule(scheduleFile);
+        List<String> examples = new ArrayList<>();
+        int missingStopLinks = 0;
+        int missingRouteLinks = 0;
+
+        for (TransitStopFacility facility : schedule.getFacilities().values()) {
+            if (facility.getLinkId() != null
+                    && !network.getLinks().containsKey(facility.getLinkId())) {
+                missingStopLinks++;
+                addExample(examples, "stopFacility " + facility.getId()
+                        + " -> " + facility.getLinkId());
+            }
+        }
+
+        for (TransitLine line : schedule.getTransitLines().values()) {
+            for (TransitRoute route : line.getRoutes().values()) {
+                for (org.matsim.api.core.v01.Id<Link> linkId
+                        : ScheduleTools.getTransitRouteLinkIds(route)) {
+                    if (!network.getLinks().containsKey(linkId)) {
+                        missingRouteLinks++;
+                        addExample(examples, "route " + line.getId() + "/"
+                                + route.getId() + " -> " + linkId);
+                    }
+                }
+            }
+        }
+
+        if (missingStopLinks > 0 || missingRouteLinks > 0) {
+            throw new IllegalStateException(
+                    "Mapped schedule references links missing from the network: "
+                            + missingStopLinks + " stop-facility links, "
+                            + missingRouteLinks + " route links. Examples: "
+                            + examples);
+        }
+        System.out.println("[MapSchedule2Network] verified schedule link references: ok");
+    }
+
+    private static void addExample(List<String> examples, String example) {
+        if (examples.size() < 8) {
+            examples.add(example);
         }
     }
 }
